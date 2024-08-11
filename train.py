@@ -4,22 +4,6 @@ from torchvision import datasets, transforms, models
 import argparse
 import os
 
-# Function to save the trained model checkpoint
-def save_checkpoint(model, train_data, save_dir, arch, hidden_units):
-    # Create the save directory if it doesn't exist
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    
-    model.class_to_idx = train_data.class_to_idx
-    checkpoint = {
-        'state_dict': model.state_dict(),
-        'class_to_idx': model.class_to_idx,
-        'arch': arch,
-        'hidden_units': hidden_units
-    }
-    torch.save(checkpoint, os.path.join(save_dir, 'checkpoint.pth'))
-
-
 # Function to parse command-line arguments
 def get_input_args():
     parser = argparse.ArgumentParser(description='Train a new network on a dataset')
@@ -72,7 +56,7 @@ def load_data(data_dir):
 # Function to initialize the model
 def initialize_model(arch, hidden_units):
     # Load a pre-trained model
-    model = getattr(models, arch)(pretrained=True)
+    model = getattr(models, arch)(weights='IMAGENET1K_V1')
     
     # Freeze the parameters of the feature network
     for param in model.parameters():
@@ -150,6 +134,10 @@ def train_model(model, trainloader, validationloader, criterion, optimizer, epoc
 
 # Function to save the trained model checkpoint
 def save_checkpoint(model, train_data, save_dir, arch, hidden_units):
+    # Create the save directory if it doesn't exist
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    
     model.class_to_idx = train_data.class_to_idx
     checkpoint = {
         'state_dict': model.state_dict(),
