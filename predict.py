@@ -1,3 +1,4 @@
+import os
 import torch
 from torch import nn
 from torchvision import models
@@ -84,30 +85,64 @@ def predict(image_path, model, topk=5, gpu=False):
     
     return top_p.cpu().numpy()[0], top_classes
 
+# Function to write results to a file
+def write_results(filename, results):
+    with open(filename, 'w') as f:
+        for item in results:
+            f.write(f"{item}\n")
+
 # Main function to parse arguments and run the prediction
 def main():
-    parser = argparse.ArgumentParser(description="Predict the class of an image using a trained deep learning model")
+    parser = argparse.ArgumentParser(description="Predict the class of an image or all images in a directory using a trained deep learning model")
     
-    parser.add_argument('input', type=str, help="Path to the input image")
+    parser.add_argument('input', type=str, help="Path to the input image or directory containing images")
     parser.add_argument('checkpoint', type=str, help="Path to the model checkpoint")
     parser.add_argument('--top_k', type=int, default=5, help="Return top K most likely classes")
     parser.add_argument('--category_names', type=str, help="Path to JSON file mapping categories to real names")
     parser.add_argument('--gpu', action='store_true', help="Use GPU for inference if available")
+    parser.add_argument('--output_file', type=str, default='predictions.txt', help="File to save the prediction results")
     
     args = parser.parse_args()
     
     model = load_checkpoint(args.checkpoint)
     
-    probs, classes = predict(args.input, model, args.top_k, args.gpu)
+    results = []
     
-    if args.category_names:
-        with open(args.category_names, 'r') as f:
-            cat_to_name = json.load(f)
-        classes = [cat_to_name[str(cls)] for cls in classes]
+    if os.path.isdir(args.input):
+        # Process all images in the directory
+        for filename in os.listdir(args.input):
+            if filename.endswith(".jpg") or filename.endswith(".png"):
+                image_path = os.path.join(args.input, filename)
+                probs, classes = predict(image_path, model, args.top_k, args.gpu)
+                
+                if args.category_names:
+                    with open(args.category_names, 'r') as f:
+                        cat_to_name = json.load(f)
+                    classes = [cat_to_name[str(cls)] for cls in classes]
+                
+                result = f"\nPredictions for {filename}:"
+                for i in range(len(classes)):
+                    result += f"\n{classes[i]}: {probs[i]*100:.2f}%"
+                results.append(result)
+                print(result)  # Optional: print to console as well
+
+    else:
+        # Process a single image
+        probs, classes = predict(args.input, model, args.top_k, args.gpu)
+        
+        if args.category_names:
+            with open(args.category_names, 'r') as f:
+                cat_to_name = json.load(f)
+            classes = [cat_to_name[str(cls)] for cls in classes]
+        
+        result = f"\nPredictions for {args.input}:"
+        for i in range(len(classes)):
+            result += f"\n{classes[i]}: {probs[i]*100:.2f}%"
+        results.append(result)
+        print(result)  # Optional: print to console as well
     
-    print("Predicted Classes and Probabilities:")
-    for i in range(len(classes)):
-        print(f"{classes[i]}: {probs[i]*100:.2f}%")
+    write_results(args.output_file, results)
+    print(f"\nResults saved to {args.output_file}")
 
 if __name__ == "__main__":
     main()
